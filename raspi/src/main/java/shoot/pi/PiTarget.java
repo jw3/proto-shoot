@@ -1,5 +1,8 @@
 package shoot.pi;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.pi4j.io.gpio.GpioPinDigitalOutput;
 
 import shoot.api.ITarget;
@@ -12,6 +15,7 @@ import shoot.api.ITarget;
 public class PiTarget
 	implements ITarget {
 
+	private static final Logger logger = LoggerFactory.getLogger(ITarget.class);
 	private final String id;
 	private final GpioPinDigitalOutput pin;
 
@@ -36,6 +40,7 @@ public class PiTarget
 
 	public ITarget activate() {
 		if (!active) {
+			logger.trace("activate " + id);
 			pin.setState(true);
 			active = true;
 		}
@@ -45,6 +50,7 @@ public class PiTarget
 
 	public ITarget deactivate() {
 		if (active) {
+			logger.trace("deactivate " + id);
 			pin.setState(false);
 			active = false;
 		}

@@ -2,17 +2,24 @@ package shoot.pi;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.pi4j.io.gpio.Pin;
 import com.pi4j.io.gpio.RaspiPin;
 
 import shoot.api.IGallery;
 import shoot.api.IGame;
+import shoot.api.IGame.IEndableGame;
 import shoot.api.ISensor;
 import shoot.api.IStatusIndicator;
 import shoot.api.ITarget;
-import shoot.games.KnockAllDown;
+import shoot.api.events.HitInfo;
 
 /**
  *
@@ -22,15 +29,22 @@ import shoot.games.KnockAllDown;
 public class PiGallery
 	implements IGallery {
 
+	private static final Logger logger = LoggerFactory.getLogger(IGallery.class);
 	private final List<ITarget> targets = Lists.newArrayList();
+	private IGame game;
 
 
 	public PiGallery() {
+		final EventBus eventbus = new EventBus();
+		eventbus.register(this);
+
 		for (int i = 0; i < 4; ++i) {
+			logger.info("setup target {}", i);
 			final ITarget target = PiShoot.newTarget(String.valueOf(i), targetPins.get(i));
 			final ISensor sensor = PiShoot.newSensor(String.valueOf(i), sensorPins.get(i), target);
-
 			targets.add(target);
+
+			((HitSensor)sensor).setEventbus(eventbus);
 		}
 
 		final IStatusIndicator status = PiShoot.newIndicator("status", Iterables.getOnlyElement(statusPins));
@@ -44,12 +58,26 @@ public class PiGallery
 
 
 	public IGame getGame() {
-		return new KnockAllDown();
+		return game;
 	}
 
 
 	public IGallery setGame(final IGame game) {
-		return null;
+		this.game = game;
+		if (null != this.game) {
+			game.initialize(ImmutableList.copyOf(targets));
+		}
+		return this;
+	}
+
+
+	@Subscribe
+	public void hit(final HitInfo hit) {
+		game.hit(hit);
+
+		if (game instanceof IEndableGame && ((IEndableGame)game).over()) {
+			logger.info("{} done!", getClass().getSimpleName());
+		}
 	}
 
 	/*
